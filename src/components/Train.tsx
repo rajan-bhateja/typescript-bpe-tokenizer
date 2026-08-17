@@ -1,6 +1,8 @@
-import { useRef, useState } from 'react'
+'use client'
+import { useMemo, useRef, useState } from 'react'
 import type { TokenizerData } from '../lib/types'
-import { createByteBPE, decode, encode, tokenLabel } from '../lib/bpe'
+import { createByteBPE, decode, encode, loadDefaultTokenizer, tokenLabel } from '../lib/bpe'
+import VocabExplorer, { type VocabSource } from './VocabExplorer'
 
 interface Progress {
   done: number
@@ -19,6 +21,16 @@ export default function Train() {
   const [status, setStatus] = useState<Status>({ phase: 'idle' })
   const [testText, setTestText] = useState('')
   const workerRef = useRef<Worker | null>(null)
+
+  const defaultBpe = useMemo(() => loadDefaultTokenizer(), [])
+  const trainedBpe = useMemo(
+    () => (status.phase === 'done' ? createByteBPE(status.data) : null),
+    [status]
+  )
+  const vocabSources: VocabSource[] = [
+    { id: 'default', label: 'Default (prebuilt)', bpe: defaultBpe },
+    ...(trainedBpe ? [{ id: 'trained', label: 'Trained', bpe: trainedBpe }] : []),
+  ]
 
   const startTraining = async () => {
     if (!files.length) return
@@ -91,12 +103,16 @@ export default function Train() {
         {status.phase === 'training' ? 'Training...' : 'Train'}
       </button>
 
+      <VocabExplorer sources={vocabSources} />
+
       {status.phase === 'training' && (
         <div className="progress">
-          <div
-            className="progress-bar"
-            style={{ width: `${(status.progress.done / Math.max(1, status.progress.total)) * 100}%` }}
-          />
+          <div className="progress-track">
+            <div
+              className="progress-bar"
+              style={{ width: `${(status.progress.done / Math.max(1, status.progress.total)) * 100}%` }}
+            />
+          </div>
           <span>
             {status.progress.done} / {status.progress.total} merges
           </span>

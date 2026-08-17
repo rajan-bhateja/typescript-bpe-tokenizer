@@ -1,4 +1,4 @@
-import rawTokenizer from '../../tokenizer.json?raw'
+import tokenizerData from '../../tokenizer.json'
 import type { TokenEntry, TokenizerData } from './types'
 
 const GPT2_PATTERN =
@@ -44,7 +44,7 @@ export function createByteBPE(data: TokenizerData): ByteBPE {
 
 export function loadDefaultTokenizer(): ByteBPE {
   if (!defaultBPE) {
-    defaultBPE = createByteBPE(JSON.parse(rawTokenizer) as TokenizerData)
+    defaultBPE = createByteBPE(tokenizerData as TokenizerData)
   }
   return defaultBPE
 }
