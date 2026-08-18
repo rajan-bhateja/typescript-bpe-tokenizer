@@ -1,6 +1,8 @@
 'use client'
 import { useMemo, useState } from 'react'
-import { encode, loadDefaultTokenizer, tokenLabel } from '../lib/bpe'
+import { encode, tokenLabel } from '../lib/bpe'
+import { useTokenizer } from '../lib/TokenizerContext'
+import ActiveTokenizerSwitcher from './ActiveTokenizerSwitcher'
 
 interface TokenView {
   id: number
@@ -9,18 +11,19 @@ interface TokenView {
 
 export default function Encode() {
   const [text, setText] = useState('')
+  const { activeTokenizer } = useTokenizer()
 
   const result = useMemo(() => {
     if (!text) return { ids: [] as number[], tokens: [] as TokenView[], chars: 0 }
-    const bpe = loadDefaultTokenizer()
-    const ids = encode(text, bpe)
-    const tokens = ids.map((id) => ({ id, label: tokenLabel(bpe.vocab[id]) }))
+    const ids = encode(text, activeTokenizer)
+    const tokens = ids.map((id) => ({ id, label: tokenLabel(activeTokenizer.vocab[id]) }))
     return { ids, tokens, chars: text.length }
-  }, [text])
+  }, [text, activeTokenizer])
 
   return (
     <div className="view">
       <h2>Encode</h2>
+      <ActiveTokenizerSwitcher />
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}

@@ -1,9 +1,12 @@
 'use client'
 import { useMemo, useState } from 'react'
-import { decode, loadDefaultTokenizer } from '../lib/bpe'
+import { decode } from '../lib/bpe'
+import { useTokenizer } from '../lib/TokenizerContext'
+import ActiveTokenizerSwitcher from './ActiveTokenizerSwitcher'
 
 export default function Decode() {
   const [input, setInput] = useState('')
+  const { activeTokenizer } = useTokenizer()
 
   const result = useMemo(() => {
     const ids = input
@@ -12,12 +15,13 @@ export default function Decode() {
       .map(Number)
       .filter(Number.isInteger)
     if (!ids.length) return { text: '', count: 0 }
-    return { text: decode(ids, loadDefaultTokenizer()), count: ids.length }
-  }, [input])
+    return { text: decode(ids, activeTokenizer), count: ids.length }
+  }, [input, activeTokenizer])
 
   return (
     <div className="view">
       <h2>Decode</h2>
+      <ActiveTokenizerSwitcher />
       <textarea
         value={input}
         onChange={(e) => setInput(e.target.value)}

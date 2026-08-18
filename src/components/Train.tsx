@@ -1,8 +1,11 @@
 'use client'
-import { useMemo, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
+import { Info } from 'lucide-react'
 import type { TokenizerData } from '../lib/types'
-import { createByteBPE, decode, encode, loadDefaultTokenizer, tokenLabel } from '../lib/bpe'
-import VocabExplorer, { type VocabSource } from './VocabExplorer'
+import { createByteBPE } from '../lib/bpe'
+import { useTokenizer } from '../lib/TokenizerContext'
+import VocabExplorer from './VocabExplorer'
+import Stats from './Stats'
 
 interface Progress {
   done: number
@@ -17,24 +20,15 @@ type Status =
 
 export default function Train() {
   const [files, setFiles] = useState<File[]>([])
-  const [vocabSize, setVocabSize] = useState(3500)
+  const [vocabSize, setVocabSize] = useState('')
   const [status, setStatus] = useState<Status>({ phase: 'idle' })
-  const [testText, setTestText] = useState('')
   const workerRef = useRef<Worker | null>(null)
-
-  const defaultBpe = useMemo(() => loadDefaultTokenizer(), [])
-  const trainedBpe = useMemo(
-    () => (status.phase === 'done' ? createByteBPE(status.data) : null),
-    [status]
-  )
-  const vocabSources: VocabSource[] = [
-    { id: 'default', label: 'Default (prebuilt)', bpe: defaultBpe },
-    ...(trainedBpe ? [{ id: 'trained', label: 'Trained', bpe: trainedBpe }] : []),
-  ]
+  const { setTrained, setActiveId } = useTokenizer()
 
   const startTraining = async () => {
     if (!files.length) return
-    setStatus({ phase: 'training', progress: { done: 0, total: vocabSize - 256 } })
+    const target = Number(vocabSize) || 3500
+    setStatus({ phase: 'training', progress: { done: 0, total: target - 256 } })
     const texts: string[] = []
     for (const f of files) texts.push(await f.text())
 
@@ -46,13 +40,15 @@ export default function Train() {
         setStatus({ phase: 'training', progress: { done: msg.done, total: msg.total } })
       } else if (msg.type === 'done') {
         setStatus({ phase: 'done', data: msg.data })
+        setTrained(createByteBPE(msg.data))
+        setActiveId('trained')
         worker.terminate()
       } else if (msg.type === 'error') {
         setStatus({ phase: 'error', message: msg.message })
         worker.terminate()
       }
     }
-    worker.postMessage({ texts, vocabSize })
+    worker.postMessage({ texts, vocabSize: target })
   }
 
   const download = () => {
@@ -66,44 +62,62 @@ export default function Train() {
     URL.revokeObjectURL(url)
   }
 
-  const testResult = (() => {
-    if (status.phase !== 'done' || !testText) return null
-    const bpe = createByteBPE(status.data)
-    const ids = encode(testText, bpe)
-    return { bpe, ids, roundtrip: decode(ids, bpe), matches: decode(ids, bpe) === testText }
-  })()
-
   return (
     <div className="view">
+      <Stats />
+      <div className="divider" />
       <h2>Train your own tokenizer</h2>
       <p>Upload one or more .txt files. Training runs entirely in your browser.</p>
-      <input
-        type="file"
-        accept=".txt,text/plain"
-        multiple
-        onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
-      />
+      <label className="file-button">
+        Choose Files
+        <input
+          type="file"
+          accept=".txt,text/plain"
+          multiple
+          onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+        />
+      </label>
       {files.length > 0 && (
         <p className="files">
           Loaded {files.length} file(s): {files.map((f) => f.name).join(', ')}
         </p>
       )}
       <div className="field">
-        <label htmlFor="vocab">Target vocab size</label>
+        <label htmlFor="vocab">
+          Target vocab size
+          <span className="field-tooltip" tabIndex={0}>
+            <Info size={12} aria-hidden="true" />
+            <span className="field-tooltip-text">
+              Number of tokens to create, including base UTF-8 tokens
+            </span>
+          </span>
+        </label>
         <input
           id="vocab"
           type="number"
           min={256}
           max={100000}
           value={vocabSize}
-          onChange={(e) => setVocabSize(Number(e.target.value))}
+          onChange={(e) => {
+            const v = e.target.value
+            if (v !== '' && (Number(v) < 0 || Number.isNaN(Number(v)))) return
+            setVocabSize(v)
+          }}
         />
       </div>
       <button onClick={startTraining} disabled={!files.length || status.phase === 'training'}>
         {status.phase === 'training' ? 'Training...' : 'Train'}
       </button>
 
-      <VocabExplorer sources={vocabSources} />
+      {status.phase === 'done' && (
+        <p className="success">Training complete. Vocab: {status.data.vocab_size} tokens.</p>
+      )}
+      {status.phase === 'done' && (
+        <button onClick={download}>Download tokenizer.json</button>
+      )}
+
+      <VocabExplorer />
+      <div className="divider" />
 
       {status.phase === 'training' && (
         <div className="progress">
@@ -117,45 +131,6 @@ export default function Train() {
             {status.progress.done} / {status.progress.total} merges
           </span>
         </div>
-      )}
-
-      {status.phase === 'done' && (
-        <>
-          <p className="success">Training complete. Vocab: {status.data.vocab_size} tokens.</p>
-          <button onClick={download}>Download tokenizer.json</button>
-
-          <h3>Test your tokenizer</h3>
-          <textarea
-            value={testText}
-            onChange={(e) => setTestText(e.target.value)}
-            rows={4}
-            placeholder="Type text to encode/decode with your trained tokenizer..."
-          />
-          {testResult && (
-            <div className="test-output">
-              <p>
-                <span className="label">Token IDs:</span> {testResult.ids.join(' ')}
-              </p>
-              <p>
-                <span className="label">Round-trip matches:</span>{' '}
-                {testResult.matches ? 'yes' : 'no'}
-              </p>
-              <p className="label">Tokens:</p>
-              <div className="tokens">
-                {testResult.ids.map((id, i) => {
-                  const t = testResult.bpe.vocab[id]
-                  const label = t ? tokenLabel(t) : '?'
-                  return (
-                    <span key={i} className="token" title={`id ${id}`}>
-                      <span className="token-content">{label === '\n' ? '\\n' : label}</span>
-                      <span className="token-id">{id}</span>
-                    </span>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-        </>
       )}
 
       {status.phase === 'error' && <p className="error">{status.message}</p>}
