@@ -1,5 +1,4 @@
-# typescript-bpe-tokenizer
-Custom BPE algorithm implementation using TypeScript
+# Submission
 
 ## What I Built and Why
 
@@ -43,7 +42,7 @@ Custom BPE algorithm implementation using TypeScript
 
 - Added Vocabulary Explorer and Merge Rules section to explore the tokenizer's content and merge rules.
 
-- Had an afterthought about adding comparison with production tokenizers like `o200k_base` (used by older GPT models), but it would increase the complexity without significant improvements. For reference, that tokenizer can be found [here](https://tiktokenizer.vercel.app/): 
+- Had an afterthought about adding comparison with production tokenizers like o200k_base (used by older GPT models), but it would increase the complexity without significant improvements. For reference, that tokenizer can be found [here](https://tiktokenizer.vercel.app/): 
 
 
 ## First-Principles Reasoning
@@ -58,9 +57,6 @@ Custom BPE algorithm implementation using TypeScript
 
 
 ## UI/UX Improvements
-
-**A. What would you change or add next, and why?**
-[YOUR WORDS]
 
 - In `Settings`, option values in selectors aren't vertically centered in their row — slightly top-aligned. Minor, but the kind of polish miss that's noticeable on a product this deliberately designed.
 
@@ -77,8 +73,15 @@ Custom BPE algorithm implementation using TypeScript
 
 - Token usage was noticably lower compared to your usual AI IDEs like Cursor or AntiGravity.
 
+- The `Chat` problem where the agent takes something too literally is, I believe, worth looking into. It could be improved by either the agent asking the use about what to put in the placeholder (or any other place), or generating something appropriate itself, given it has the context.
+
 
 ## Links
 
 - **GitHub repository:** https://github.com/rajan-bhateja/typescript-bpe-tokenizer
 - **Deployed application:** https://typescript-bpe-tokenizer.vercel.app/
+
+
+---
+
+*Some parts of this markdown file were enhanced using Claude.*
